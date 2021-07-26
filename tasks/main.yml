@@ -66,18 +66,6 @@
 
 - name: Setup SSL Cert using Webroot
   block:
-    - name: Issue certificate standalone for bootstrap webroot
-      shell: >
-        "{{ acme_home_directory }}/.acme.sh/acme.sh --issue {% for d in item.d %}-d {{ d }} {% endfor %}
-        --home ~acme/.acme.sh
-        --standalone
-        --certpath {{ acme_certificate_directory }}/{{ item.d[0] }}-cert.pem
-        --keypath {{ acme_certificate_directory }}/{{ item.d[0] }}-key.pem
-        --fullchainpath {{ acme_certificate_directory }}/{{ item.d[0] }}-fullchain.pem"
-      args:
-        creates: "{{ acme_certificate_directory }}/{{ item.d[0] }}-cert.pem"
-      with_items: "{{ acme_certificates }}"
-
     - name: Create .well-known/acme-challenge
       file:
         state: directory
@@ -85,18 +73,17 @@
         owner: "{{ acme_username }}"
         group: www-data
 
-    - name: Switch to webroot for certificate
-      become: true
-      become_user: "{{ acme_username }}"
-      lineinfile:
-        dest: "{{ acme_home_directory }}/.acme.sh/{{ item[0].d[0] }}/{{ item[0].d[0] }}.conf"
-        regexp: "^{{ item[1].k }}='.*'$"
-        line: "{{ item[1].k }}='{{ item[1].v }}'"
-      loop_control:
-        label: "{{ item[0].d[0] }} - {{ item[1].k }}={{ item[1].v }}"
-      with_nested:
-        - "{{ acme_certificates }}"
-        - - {k: "Le_Webroot", v: "{{ acme_webroot_directory }}"}
+    - name: Issue certificate standalone for bootstrap webroot
+      shell: >
+        "{{ acme_home_directory }}/.acme.sh/acme.sh --issue {% for d in item.d %}-d {{ d }} {% endfor %}
+        --home ~acme/.acme.sh
+        --webroot {{ acme_webroot_directory }}
+        --certpath {{ acme_certificate_directory }}/{{ item.d[0] }}-cert.pem
+        --keypath {{ acme_certificate_directory }}/{{ item.d[0] }}-key.pem
+        --fullchainpath {{ acme_certificate_directory }}/{{ item.d[0] }}-fullchain.pem"
+      args:
+        creates: "{{ acme_certificate_directory }}/{{ item.d[0] }}-cert.pem"
+      with_items: "{{ acme_certificates }}"
 
   when: acme_method == 'webroot' and acme_certificates is defined
 
